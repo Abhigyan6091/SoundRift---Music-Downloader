@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="description" content="Soundrift — search and download music as MP3 from YouTube, SoundCloud, and 1800+ sources. Free, fast, dark-themed."/>
+<title>SoundRift — Music Downloader</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+/* ───────── TOKENS ───────── */
+:root{
+  --bg:#0f1112;
+  --bg2:#16191b;
+  --surface:rgba(25,28,30,.65);
+  --card:rgba(20,24,25,.6);
+  --card-hover:rgba(30,35,38,.75);
+  --border:rgba(255,255,255,.06);
+  --border-hover:rgba(255,255,255,.12);
+  --accent:#10b981;
+  --accent-glow:rgba(16,185,129,.35);
+  --accent2:#84cc16;
+  --accent2-glow:rgba(132,204,22,.25);
+  --accent3:#6b7280;
+  --pink:#34d399;
+  --green:#10b981;
+  --text:#eeeef5;
+  --text2:#b0b0c8;
+  --muted:#6b7280;
+  --radius:16px;
+  --font:'Outfit',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+
+/* ───────── ANIMATED BG ───────── */
+.bg-mesh{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%,rgba(16,185,129,.12) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 80% at 90% 80%,rgba(132,204,22,.1) 0%,transparent 60%),
+    radial-gradient(ellipse 50% 50% at 50% 50%,rgba(52,211,153,.06) 0%,transparent 60%);
+  animation:meshPulse 12s ease-in-out infinite alternate;
+}
+@keyframes meshPulse{
+  0%{opacity:.7;transform:scale(1)}
+  100%{opacity:1;transform:scale(1.05)}
+}
+
+/* ── noise ── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.3;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+}
+
+/* ── floating particles ── */
+.particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.particle{
+  position:absolute;border-radius:50%;
+  background:var(--accent);opacity:0;
+  animation:float linear infinite;
+}
+@keyframes float{
+  0%{transform:translateY(100vh) scale(0);opacity:0}
+  10%{opacity:.6}
+  90%{opacity:.6}
+  100%{transform:translateY(-10vh) scale(1);opacity:0}
+}
+
+/* ───────── LAYOUT ───────── */
+.app{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:0 24px}
+
+/* ── header ── */
+header{padding:48px 0 0;text-align:center}
+.logo-row{display:flex;align-items:center;justify-content:center;gap:14px}
+.logo{
+  font-size:clamp(48px,8vw,80px);font-weight:800;letter-spacing:-1px;line-height:1;
+  background:linear-gradient(135deg,var(--accent) 0%,var(--pink) 40%,var(--accent2) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 30px var(--accent-glow));
+}
+.tagline{
+  margin-top:10px;font-size:14px;color:var(--muted);letter-spacing:.8px;font-weight:300;
+}
+
+/* ── equalizer anim ── */
+.eq{display:flex;align-items:flex-end;gap:3px;height:36px}
+.eq span{
+  display:block;width:4px;border-radius:2px;
+  background:linear-gradient(to top,var(--accent),var(--accent2));
+  animation:eqBounce 1s ease-in-out infinite alternate;
+}
+.eq span:nth-child(1){height:60%;animation-delay:0s}
+.eq span:nth-child(2){height:100%;animation-delay:.15s}
+.eq span:nth-child(3){height:40%;animation-delay:.3s}
+.eq span:nth-child(4){height:80%;animation-delay:.45s}
+.eq span:nth-child(5){height:50%;animation-delay:.1s}
+@keyframes eqBounce{
+  0%{transform:scaleY(.3)}
+  100%{transform:scaleY(1)}
+}
+
+/* ───────── SOURCE TABS ───────── */
+.source-tabs{
+  display:flex;justify-content:center;gap:8px;
+  margin-top:32px;flex-wrap:wrap;
+}
+.tab{
+  padding:10px 24px;border-radius:50px;font-size:14px;font-weight:500;
+  border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  cursor:pointer;transition:all .25s;backdrop-filter:blur(12px);
+  display:inline-flex;align-items:center;gap:8px;
+}
+.tab:hover{border-color:var(--accent);color:var(--text)}
+.tab.active{
+  background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(132,204,22,.15));
+  border-color:var(--accent);color:var(--text);
+  box-shadow:0 0 20px var(--accent-glow);
+}
+.tab-icon{font-size:16px}
+.source-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;
+  letter-spacing:.5px;text-transform:uppercase;
+}
+.badge-yt{background:rgba(16,185,129,.15);color:var(--accent)}
+.badge-sc{background:rgba(255,130,0,.15);color:#f80}
+.badge-url{background:rgba(107,114,128,.15);color:var(--accent3)}
+
+/* ───────── SEARCH ───────── */
+.search-wrap{margin-top:24px}
+.search-bar{
+  display:flex;gap:10px;
+  background:var(--surface);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:50px;
+  padding:8px 8px 8px 28px;
+  transition:all .3s;
+}
+.search-bar:focus-within{
+  border-color:var(--accent);
+  box-shadow:0 0 30px var(--accent-glow),inset 0 0 20px rgba(16,185,129,.05);
+}
+.search-bar input{
+  flex:1;background:none;border:none;outline:none;
+  color:var(--text);font-family:var(--font);font-size:16px;
+}
+.search-bar input::placeholder{color:var(--muted)}
+
+/* ── URL paste bar ── */
+.url-section{
+  margin-top:16px;
+  background:var(--surface);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 20px;
+  display:none;
+}
+.url-section.visible{display:block}
+.url-section-title{font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:.5px;font-weight:500;text-transform:uppercase}
+.url-bar{display:flex;gap:10px}
+.url-bar input{
+  flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:50px;
+  padding:10px 20px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;
+  transition:border-color .2s;
+}
+.url-bar input:focus{border-color:var(--accent2)}
+.url-bar input::placeholder{color:var(--muted)}
+.supported-sites{font-size:11px;color:var(--muted);margin-top:8px}
+.supported-sites span{color:var(--accent2)}
+
+/* ───────── BUTTONS ───────── */
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(135deg,var(--accent),var(--pink));
+  color:#fff;border:none;border-radius:50px;padding:12px 28px;
+  font-family:var(--font);font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+  box-shadow:0 4px 20px var(--accent-glow);
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+.btn-cyan{
+  background:linear-gradient(135deg,var(--accent2),#0ea5e9);
+  box-shadow:0 4px 20px var(--accent2-glow);
+}
+.btn-cyan:hover{box-shadow:0 8px 30px var(--accent2-glow)}
+
+/* ───────── RESULTS GRID ───────── */
+.results{
+  padding:40px 0 120px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:20px;
+}
+.card{
+  background:var(--card);backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;transition:all .3s;display:flex;flex-direction:column;
+  position:relative;
+}
+.card::before{
+  content:'';position:absolute;inset:-1px;border-radius:var(--radius);
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  opacity:0;transition:opacity .3s;z-index:-1;
+}
+.card:hover{
+  transform:translateY(-6px);
+  border-color:transparent;
+  box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 40px var(--accent-glow);
+}
+.card:hover::before{opacity:.15}
+.thumb-wrap{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0a0a18}
+.thumb-wrap img{width:100%;height:100%;object-fit:cover;transition:transform .4s,filter .4s}
+.card:hover .thumb-wrap img{transform:scale(1.08);filter:brightness(1.1)}
+.thumb-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(6,6,12,.9) 0%,transparent 50%);
+  display:flex;align-items:flex-end;justify-content:space-between;padding:10px;
+}
+.duration-badge{
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:3px 10px;font-size:11px;color:#ccc;font-weight:500;
+}
+.card-body{padding:14px 16px 16px;flex:1;display:flex;flex-direction:column;gap:10px}
+.card-title{
+  font-size:14px;font-weight:500;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.card-meta{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.views-dot{width:3px;height:3px;background:var(--muted);border-radius:50%}
+.card-actions{display:flex;gap:8px;margin-top:auto}
+.btn-sm{
+  flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:1px solid var(--border);border-radius:50px;
+  padding:9px 14px;font-family:var(--font);font-size:13px;font-weight:500;
+  cursor:pointer;transition:all .2s;background:none;color:var(--text2);
+}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent);background:rgba(16,185,129,.08)}
+.btn-dl{
+  background:linear-gradient(135deg,var(--accent),var(--pink));
+  color:#fff;border-color:transparent;
+}
+.btn-dl:hover{
+  background:linear-gradient(135deg,var(--pink),var(--accent));
+  border-color:transparent;color:#fff;
+  box-shadow:0 4px 20px var(--accent-glow);
+}
+.btn-dl.loading{opacity:.5;pointer-events:none}
+.btn-sm:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ───────── SKELETON ───────── */
+.skeleton-grid{
+  padding:40px 0;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:20px;
+}
+.skeleton-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+}
+.skeleton-thumb{aspect-ratio:16/9;background:linear-gradient(90deg,#12121f 25%,#1a1a2e 50%,#12121f 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+.skeleton-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.skeleton-line{height:14px;border-radius:8px;background:linear-gradient(90deg,#12121f 25%,#1a1a2e 50%,#12121f 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+.skeleton-line.short{width:55%}
+.skeleton-line.actions{height:38px;border-radius:50px;margin-top:6px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ───────── MINI PLAYER ───────── */
+#player{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(10,10,20,.92);backdrop-filter:blur(24px);
+  border-top:1px solid var(--border);
+  padding:14px 24px;display:none;align-items:center;gap:20px;
+}
+#player.visible{display:flex}
+.player-thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)}
+.player-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.player-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-uploader{font-size:12px;color:var(--muted)}
+.player-hint{font-size:11px;color:var(--accent);font-weight:500}
+.player-audio{width:100%;height:32px;border-radius:50px;outline:none}
+.player-audio::-webkit-media-controls-enclosure{background:rgba(255,255,255,.05);border-radius:50px}
+.player-audio::-webkit-media-controls-play-button,.player-audio::-webkit-media-controls-mute-button{filter:invert(1)}
+.player-audio::-webkit-media-controls-current-time-display,.player-audio::-webkit-media-controls-time-remaining-display{color:#ccc}
+.player-close{
+  background:none;border:1px solid var(--border);border-radius:10px;
+  color:var(--muted);font-size:18px;cursor:pointer;padding:8px 12px;
+  transition:all .2s;
+}
+.player-close:hover{color:var(--text);border-color:var(--accent3);background:rgba(107,114,128,.08)}
+
+/* ───────── STATES ───────── */
+.empty-state{
+  padding:80px 0;text-align:center;font-size:15px;color:var(--muted);
+}
+.empty-icon{font-size:64px;margin-bottom:16px;display:block;filter:drop-shadow(0 0 20px var(--accent-glow))}
+.empty-sub{font-size:12px;color:var(--muted);margin-top:8px;opacity:.6}
+.spinner{
+  width:20px;height:20px;border:2px solid rgba(255,255,255,.2);
+  border-top-color:#fff;border-radius:50%;
+  animation:spin .7s linear infinite;display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ───────── TOAST ───────── */
+.toast{
+  position:fixed;top:24px;right:24px;z-index:200;
+  background:var(--card);backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:14px;
+  padding:14px 22px;font-size:13px;font-weight:500;
+  opacity:0;transform:translateY(-12px);transition:all .35s;pointer-events:none;
+  box-shadow:0 10px 40px rgba(0,0,0,.3);
+}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.error{border-color:var(--accent3);color:var(--accent3)}
+.toast.success{border-color:var(--green);color:var(--green)}
+
+/* ───────── RESPONSIVE ───────── */
+@media(max-width:640px){
+  .app{padding:0 16px}
+  .results,.skeleton-grid{grid-template-columns:1fr}
+  header{padding:32px 0 0}
+  .source-tabs{gap:6px}
+  .tab{padding:8px 16px;font-size:13px}
+  .player-info{flex:1}
+  #player{padding:12px 16px;gap:14px}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-mesh"></div>
+<div class="particles" id="particles"></div>
+
+<div class="app">
+
+<header>
+  <div class="logo-row">
+    <div class="eq">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="logo">SoundRift</div>
+    <div class="eq">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+  <div class="tagline">Search &amp; Download music from anywhere in the Internet</div>
+</header>
+
+<!-- Source Tabs -->
+<div class="source-tabs">
+  <button class="tab active" data-source="youtube" onclick="setSource('youtube',this)">
+    <span class="tab-icon">🌐</span> Search Web
+  </button>
+  <button class="tab" data-source="url" onclick="toggleUrlSection(this)">
+    <span class="tab-icon">🔗</span> Paste URL
+  </button>
+</div>
+
+<!-- Search -->
+<div class="search-wrap">
+  <div class="search-bar">
+    <input id="q" type="text" placeholder="Search for a song, artist, album…" autocomplete="off"/>
+    <button class="btn" id="searchBtn" onclick="doSearch()">
+      <span id="searchLabel">Search</span>
+    </button>
+  </div>
+</div>
+
+<!-- URL Paste -->
+<div class="url-section" id="urlSection">
+  <div class="url-section-title">Paste any music URL to download</div>
+  <div class="url-bar">
+    <input id="urlInput" type="url" placeholder="https://soundcloud.com/artist/track  or  any supported URL…" autocomplete="off"/>
+    <button class="btn btn-cyan" onclick="downloadFromUrl()">↓ Download</button>
+  </div>
+  <div class="supported-sites">
+    Works with <span>YouTube</span>, <span>SoundCloud</span>, <span>Bandcamp</span>, <span>Dailymotion</span>, <span>Vimeo</span>, and <span>1800+ more sites</span>
+  </div>
+</div>
+
+<!-- Content -->
+<div id="content">
+  <div class="empty-state">
+    <span class="empty-icon">🎧</span>
+    Search for any song to get started
+    <div class="empty-sub">Pick a source above, or paste any URL directly</div>
+  </div>
+</div>
+
+</div><!-- .app -->
+
+<!-- Mini Player -->
+<div id="player">
+  <img id="pThumb" class="player-thumb" src="" alt=""/>
+  <div class="player-info">
+    <div id="pTitle" class="player-title">—</div>
+    <div id="pUploader" class="player-uploader">—</div>
+    <audio id="pAudio" class="player-audio" controls autoplay preload="none"></audio>
+  </div>
+  <button class="player-close" onclick="closePlayer()" aria-label="Close player">✕</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+let currentSource = 'youtube';
+
+/* ── particles ── */
+(function initParticles(){
+  const container = document.getElementById('particles');
+  const colors = ['#10b981','#34d399','#84cc16','#a3e635','#6b7280'];
+  for(let i=0;i<20;i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random()*4+2;
+    p.style.cssText = `
+      width:${size}px;height:${size}px;
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${Math.random()*12+8}s;
+      animation-delay:${Math.random()*8}s;
+    `;
+    container.appendChild(p);
+  }
+})();
+
+/* ── helpers ── */
+function escapeHTML(s){
+  const d=document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+function fmtViews(n){
+  if(!n) return '';
+  if(n>=1e9) return (n/1e9).toFixed(1)+'B views';
+  if(n>=1e6) return (n/1e6).toFixed(1)+'M views';
+  if(n>=1e3) return (n/1e3).toFixed(0)+'K views';
+  return n+' views';
+}
+
+/* ── source switching ── */
+function setSource(source, btn){
+  // deactivate URL tab
+  document.getElementById('urlSection').classList.remove('visible');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  currentSource = source;
+  document.getElementById('q').focus();
+  // update placeholder
+  const placeholders = {
+    youtube: 'Search the web for songs, artists, albums…',
+  };
+  document.getElementById('q').placeholder = placeholders[source] || placeholders.youtube;
+}
+
+function toggleUrlSection(btn){
+  const section = document.getElementById('urlSection');
+  const isVisible = section.classList.contains('visible');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(!isVisible){
+    btn.classList.add('active');
+    section.classList.add('visible');
+    document.getElementById('urlInput').focus();
+  }else{
+    section.classList.remove('visible');
+    // reactivate the current source tab
+    document.querySelector(`.tab[data-source="${currentSource}"]`).classList.add('active');
+  }
+}
+
+/* ── search ── */
+async function doSearch(){
+  const q=document.getElementById('q').value.trim();
+  if(!q) return;
+  const btn=document.getElementById('searchBtn');
+  const label=document.getElementById('searchLabel');
+  btn.disabled=true;
+  label.innerHTML='<span class="spinner"></span>';
+  showSkeleton();
+
+  try{
+    const res=await fetch(`${API}/search`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query:q, source:currentSource})
+    });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.detail||'Search failed');
+    renderResults(data.results, data.source);
+  }catch(e){
+    showToast(e.message,'error');
+    document.getElementById('content').innerHTML=
+      '<div class="empty-state"><span class="empty-icon">⚠️</span>Something went wrong. Please try again.</div>';
+  }finally{
+    btn.disabled=false;
+    label.textContent='Search';
+  }
+}
+
+/* ── skeleton ── */
+function showSkeleton(){
+  const wrap=document.getElementById('content');
+  let cards='';
+  for(let i=0;i<6;i++){
+    cards+=`
+    <div class="skeleton-card">
+      <div class="skeleton-thumb"></div>
+      <div class="skeleton-body">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-line actions"></div>
+      </div>
+    </div>`;
+  }
+  wrap.innerHTML=`<div class="skeleton-grid">${cards}</div>`;
+}
+
+/* ── render ── */
+function renderResults(results, source){
+  const wrap=document.getElementById('content');
+  if(!results.length){
+    wrap.innerHTML='<div class="empty-state"><span class="empty-icon">🔍</span>No results found. Try a different query or source.</div>';
+    return;
+  }
+  wrap.innerHTML=`<div class="results">${results.map(r=>cardHTML(r,source)).join('')}</div>`;
+}
+
+function cardHTML(r, source){
+  const thumbSrc=r.thumbnail||'https://placehold.co/320x180/0a0a18/333?text=♪';
+  const safeTitle=escapeHTML(r.title);
+  const safeUploader=escapeHTML(r.uploader||'Unknown');
+  const safeDuration=escapeHTML(r.duration||'');
+  const views=fmtViews(r.view_count);
+  const safeUrl=encodeURIComponent(r.url);
+  const badgeClass = 'badge-yt';
+  const badgeLabel = 'Web Search';
+
+  return `
+  <div class="card">
+    <div class="thumb-wrap">
+      <img src="${escapeHTML(thumbSrc)}" alt="${safeTitle}" loading="lazy" onerror="this.src='https://placehold.co/320x180/0a0a18/333?text=♪'"/>
+      <div class="thumb-overlay">
+        <span class="source-badge ${badgeClass}">${badgeLabel}</span>
+        ${safeDuration?`<span class="duration-badge">${safeDuration}</span>`:''}
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-title" title="${safeTitle}">${safeTitle}</div>
+      <div class="card-meta">
+        <span>${safeUploader}</span>
+        ${views?`<span class="views-dot"></span><span>${escapeHTML(views)}</span>`:''}
+      </div>
+      <div class="card-actions">
+        <button class="btn-sm" onclick="previewTrack('${safeUrl}','${safeTitle}','${escapeHTML(thumbSrc)}')">▶ Preview</button>
+        <button class="btn-sm btn-dl" onclick="downloadTrack('${safeUrl}','${safeTitle}',this)">↓ Download</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── preview ── */
+async function previewTrack(encodedUrl,title,thumb){
+  const url=decodeURIComponent(encodedUrl);
+  showToast('Loading streaming URL…');
+  try{
+    const res=await fetch(`${API}/preview?url=${encodeURIComponent(url)}`);
+    if(!res.ok) throw new Error('Preview unavailable');
+    const info=await res.json();
+    document.getElementById('pTitle').textContent=info.title||decodeURIComponent(title);
+    document.getElementById('pUploader').textContent=info.uploader||'';
+    document.getElementById('pThumb').src=info.thumbnail||decodeURIComponent(thumb);
+    
+    const audio = document.getElementById('pAudio');
+    audio.src = `${API}/stream?url=${encodeURIComponent(url)}`;
+    
+    document.getElementById('player').classList.add('visible');
+    showToast('Stream is ready! 🎧','success');
+  }catch(e){
+    showToast('Preview failed: '+e.message,'error');
+  }
+}
+
+/* ── listen to live progress ── */
+function applyProgress(btn, clientId, originalBg){
+  const eventSource = new EventSource(`${API}/progress/${clientId}`);
+  eventSource.onmessage = function(e){
+    const data = JSON.parse(e.data);
+    if(data.status === 'downloading') {
+      btn.style.background = `linear-gradient(90deg, var(--accent) ${data.percent}%, rgba(255,255,255,0.1) ${data.percent}%)`;
+      btn.textContent = `⏳ ${Math.floor(data.percent)}%`;
+    } else if(data.status.includes('processing')) {
+      btn.style.background = originalBg;
+      btn.textContent = '🎧 Tagging ID3/Art...';
+    } else if(data.status === 'done' || data.status === 'error') {
+      eventSource.close();
+    }
+  };
+  eventSource.onerror = function(){ eventSource.close(); };
+  return eventSource;
+}
+
+/* ── download (from search results) ── */
+async function downloadTrack(encodedUrl,title,btn){
+  const url=decodeURIComponent(encodedUrl);
+  const clientId = Math.random().toString(36).substring(2, 9);
+  const originalBg = btn.style.background;
+  
+  btn.classList.add('loading');
+  btn.textContent='🚀 Starting...';
+  showToast('Initializing download pipeline…');
+  
+  const es = applyProgress(btn, clientId, originalBg);
+
+  try{
+    const res=await fetch(`${API}/download`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url, title:decodeURIComponent(title), client_id: clientId})
+    });
+    if(!res.ok){
+      const err=await res.json();
+      throw new Error(err.detail||'Download failed');
+    }
+    const blob=await res.blob();
+    const isZip = res.headers.get('Content-Type') === 'application/zip';
+    const ext = isZip ? '.zip' : '.mp3';
+    
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=decodeURIComponent(title).replace(/[^a-z0-9 \-_]/gi,'')+ext;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast(isZip ? 'Playlist ZIP saved! 🗂️' : 'MP3 Downloaded! 🎶','success');
+  }catch(e){
+    showToast('Error: '+e.message,'error');
+  }finally{
+    es.close();
+    btn.style.background = originalBg;
+    btn.classList.remove('loading');
+    btn.textContent='↓ Download';
+  }
+}
+
+/* ── download from URL paste ── */
+async function downloadFromUrl(){
+  const urlInput=document.getElementById('urlInput');
+  const url=urlInput.value.trim();
+  const btn=urlInput.nextElementSibling;
+  if(!url){showToast('Paste a URL first','error');return}
+  if(!url.startsWith('http')){showToast('URL must start with http:// or https://','error');return}
+
+  const isPlaylist = url.includes('list=') || url.includes('/sets/');
+  if(isPlaylist) showToast('Playlist detected: Preparing massive download...','success');
+
+  const clientId = Math.random().toString(36).substring(2, 9);
+  const originalBg = btn.style.background;
+  btn.classList.add('loading');
+  btn.textContent='🚀 Starting...';
+  
+  const es = applyProgress(btn, clientId, originalBg);
+  const titleGuess=url.split('/').pop().split('?')[0].replace(/[-_]/g,' ')||'track';
+
+  try{
+    const res=await fetch(`${API}/download`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url, title:titleGuess, client_id: clientId})
+    });
+    if(!res.ok){
+      const err=await res.json();
+      throw new Error(err.detail||'Download failed');
+    }
+    const blob=await res.blob();
+    const isZip = res.headers.get('Content-Type') === 'application/zip';
+    const ext = isZip ? '.zip' : '.mp3';
+    
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=titleGuess.replace(/[^a-z0-9 \-_]/gi,'')+ext;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast(isZip ? 'Playlist ZIP saved! 🗂️' : 'MP3 Downloaded! 🎶','success');
+    urlInput.value='';
+  }catch(e){
+    showToast('Error: '+e.message,'error');
+  }finally{
+    es.close();
+    btn.style.background = originalBg;
+    btn.classList.remove('loading');
+    btn.textContent='↓ Download';
+  }
+}
+
+/* ── player ── */
+function closePlayer(){
+  const pAudio = document.getElementById('pAudio');
+  pAudio.pause();
+  pAudio.src = '';
+  document.getElementById('player').classList.remove('visible');
+}
+
+/* ── toast ── */
+let toastTimer;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className='toast',3500);
+}
+
+/* ── keyboard ── */
+document.getElementById('q').addEventListener('keydown',e=>{
+  if(e.key==='Enter') doSearch();
+});
+document.getElementById('urlInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter') downloadFromUrl();
+});
+</script>
+</body>
+</html>
